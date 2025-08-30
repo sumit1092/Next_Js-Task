@@ -1,22 +1,23 @@
 "use client";
 import { useEffect } from "react";
 import { useDispatch, useSelector } from "react-redux";
-import { showNotification } from "@mantine/notifications";
+import { toast } from "react-toastify";
 import { clearToast } from "../../app/redux/slices/uiSlice";
 
 const ToastListener = () => {
   const dispatch = useDispatch();
-  const toast = useSelector((state) => state.ui.toast);
+  const toastData = useSelector((state) => state.ui.toast);
 
   useEffect(() => {
-    if (toast) {
-      showNotification({
-        message: toast.message,
-        color: toast.type === "success" ? "green" : "red",
-      });
+    if (toastData) {
+      if (toastData.type === "success") {
+        toast.success(toastData.message);
+      } else {
+        toast.error(toastData.message);
+      }
       dispatch(clearToast());
     }
-  }, [toast, dispatch]);
+  }, [toastData, dispatch]);
 
   return null;
 };

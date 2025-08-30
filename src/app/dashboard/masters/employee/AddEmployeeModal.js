@@ -283,7 +283,7 @@ function AddEmployeeModal({ isOpen, onClose }) {
         <Button variant="default" onClick={onClose}>
           Cancel
         </Button>
-        <Button onClick={handleSubmit} type="submit" loading={loading}>Add</Button>
+        <Button onClick={handleSubmit} type="submit">Add</Button>
       </Group>
     </Modal>
   );

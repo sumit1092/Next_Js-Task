@@ -3,8 +3,9 @@
 import { Provider } from "react-redux";
 import { store } from "../redux/store";
 import { MantineProvider } from "@mantine/core";
-import { Notifications } from "@mantine/notifications"; 
-import ToastListener from "@/app/components/ToastListener"
+import { ToastContainer } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
+import ToastListener from "@/app/components/ToastListener";
 
 function ClientProvider({ children }) {
   return (
@@ -15,8 +16,8 @@ function ClientProvider({ children }) {
         theme={{ colorScheme: "light" }}
         emotionOptions={{ key: "mantine", prepend: true }}
       >
-        <Notifications position="top-right" />
-        <ToastListener />  
+        <ToastContainer position="top-right" autoClose={3000} />
+        <ToastListener />
         {children}
       </MantineProvider>
     </Provider>
