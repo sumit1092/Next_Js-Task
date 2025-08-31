@@ -1,12 +1,12 @@
-export const LOGIN = "auth/login";
-export const GET_EMPLOYEE = "technologies/all";
-export const ADD_EMPLOYEE = "user";
-export const FILTER = "user";
-export const GET_TECHNOLOGIES = "Technology/GetTechnologies";
-export const GET_ROLES = "Role/GetRoles";
-export const GET_COUNTRIES = "Country/GetCountries";
-export const GET_STATES = "State/GetStates";
-export const GET_CITIES = "City/GetCities";
-export const GET_BRANCHES = "Branch/GetBranches";
-export const GET_DESIGNATIONS = "Designation/GetDesignations";
-
+export const LOGIN = "/auth/login";
+export const GET_EMPLOYEE = "/technologies/all";
+export const ADD_EMPLOYEE = "/user";
+export const FILTER = "/user";
+export const GET_TECHNOLOGIES = "/technologies";
+export const GET_ROLES = "/roles/all";
+export const GET_COUNTRIES = "/country";
+export const GET_BRANCHES = "/branch";
+export const GET_DESIGNATIONS = "/designation";
+export const GET_DATA = "/user?pageNo=1&pageSize=25&search=";
+export const GET_STATE = "/state";
+export const GET_CITY = "/city";

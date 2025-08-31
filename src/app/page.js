@@ -13,27 +13,43 @@ import {
   Title,
   Center,
 } from "@mantine/core";
-import { showToast } from "../app/redux/slices/uiSlice"; 
+import { showToast } from "../app/redux/slices/uiSlice";
+
 
 function LoginPage() {
   const dispatch = useDispatch();
   const router = useRouter();
   const { loading, error } = useSelector((state) => state.auth);
 
+
   const [form, setForm] = useState({ email: "", password: "" });
+  const [throttle, setThrottle] = useState(false);
+
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+
+
+    if (throttle) return;
+    setThrottle(true);
+
+
     const result = await dispatch(login(form));
+
+
     if (result.meta.requestStatus === "fulfilled") {
       dispatch(showToast({ message: "Login successful!", type: "success" }));
       router.push("/dashboard");
-    }else {
-    dispatch(
-      showToast({ message: "Invalid email or password", type: "error" })
-    );
-  }
+    } else {
+      dispatch(
+        showToast({ message: "Invalid email or password", type: "error" })
+);
+    }
+
+
+    setTimeout(() => setThrottle(false), 5000);
   };
+
 
   return (
     <Center h="100vh" bg="gray.1">
@@ -41,6 +57,7 @@ function LoginPage() {
         <form onSubmit={handleSubmit}>
           <Stack align="center" spacing="md">
             <Title order={2}>Login</Title>
+
 
             <TextInput
               label="Email"
@@ -51,6 +68,7 @@ function LoginPage() {
               w={350}
             />
 
+
             <PasswordInput
               label="Password"
               placeholder="••••••"
@@ -60,9 +78,15 @@ function LoginPage() {
               w={350}
             />
 
+
             {error && <Text c="red">{error}</Text>}
 
-            <Button type="submit" loading={loading} w={350}>
+
+            <Button
+              type="submit"
+              loading={loading}
+              w={350}
+              disabled={throttle || loading}>
               Sign In
             </Button>
           </Stack>
@@ -72,4 +96,6 @@ function LoginPage() {
   );
 }
 
+
 export default LoginPage;
+

@@ -1,72 +1,176 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { useDispatch } from "react-redux";
+import { useState, useEffect } from "react";
+import { useDispatch, useSelector } from "react-redux";
 import {
   Modal,
-  Select,
-  TextInput,
   Button,
-  Grid,
   Group,
+  TextInput,
+  Select,
+  Grid,
   Loader,
 } from "@mantine/core";
-import { addEmployee, fetchEmployees } from "@/app/redux/slices/employeeSlice";
-import api from "@/app/services/api";
-import { GET_EMPLOYEE } from "@/app/utility/apiEndPoint";
+import { DateInput } from "@mantine/dates";
+
+import {
+  addEmployee,
+  fetchEmployees,
+  getCountry,
+  getBranch,
+  getDesignation,
+  getRoles,
+  getData,
+  getStates,
+  getCities,
+} from "@/app/redux/slices/employeeSlice";
 import { showToast } from "@/app/redux/slices/uiSlice";
+import { genderData } from "@/app/utility";
 
 const initialFormState = {
   name: "",
   email: "",
+  dateOfJoining: "",
+  benchDate: "",
+  phoneNumber: "",
+  addressLine1: "",
   employeeNumber: "",
   gender: "",
-  technologyId: "",
-  roleId: "",
+  technologyId: [],
+  roleId: [],
   countryId: "",
   stateId: "",
   cityId: "",
   branch: "",
   designationId: "",
+  yearOfPassing: "",
+  payrollDate: "",
+  months: "",
+  years: "",
+};
+
+const buildPayload = (form) => ({
+  name: form.name,
+  email: form.email,
+  dateOfJoining: form.dateOfJoining,
+  benchDate: form.benchDate,
+  phoneNumber: form.phoneNumber,
+  addressLine1: form.addressLine1,
+  employeeNumber: form.employeeNumber,
+  gender: form.gender?.toUpperCase(),
+  technologyId: Array.isArray(form.technologyId)
+    ? form.technologyId.map(Number)
+    : [Number(form.technologyId)],
+  roleId: Array.isArray(form.roleId)
+    ? form.roleId.map(Number)
+    : [Number(form.roleId)],
+  countryId: form.countryId ? Number(form.countryId) : null,
+  stateId: form.stateId ? Number(form.stateId) : null,
+  cityId: form.cityId ? Number(form.cityId) : null,
+  branch: form.branch ? Number(form.branch) : null,
+  designationId: form.designationId ? Number(form.designationId) : null,
+  yearOfPassing: form.yearOfPassing ? Number(form.yearOfPassing) : null,
+  payrollDate: form.payrollDate,
+  months: form.months ? Number(form.months) : 0,
+  years: form.years ? Number(form.years) : 0,
+});
+
+const validateForm = (form) => {
+  const requiredFields = [
+    "name",
+    "email",
+    "dateOfJoining",
+    "benchDate",
+    "phoneNumber",
+    "addressLine1",
+    "employeeNumber",
+    "gender",
+    "technologyId",
+    "roleId",
+    "countryId",
+    "stateId",
+    "cityId",
+    "branch",
+    "designationId",
+    "yearOfPassing",
+    "payrollDate",
+    "months",
+    "years",
+  ];
+
+  for (let field of requiredFields) {
+    if (!form[field] || String(form[field]).trim() === "") {
+      return `${field} is required`;
+    }
+  }
+  return null;
 };
 
 function AddEmployeeModal({ isOpen, onClose }) {
+  const { states, cities } = useSelector((state) => state.employees);
   const dispatch = useDispatch();
-  const [form, setForm] = useState(initialFormState);
 
+  const [form, setForm] = useState(initialFormState);
   const [technologies, setTechnologies] = useState([]);
   const [roles, setRoles] = useState([]);
+  const [countries, setCountries] = useState([]);
+  const [branches, setBranches] = useState([]);
+  const [designations, setDesignations] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [years] = useState(() =>
+    Array.from({ length: 50 }, (_, i) => {
+      const year = new Date().getFullYear() - i;
+      return { value: String(year), label: String(year) };
+    })
+  );
 
   useEffect(() => {
     const fetchDropdownData = async () => {
       setLoading(true);
       try {
-        const res = await api.get(GET_EMPLOYEE);
-        const data = res.data?.data || [];
+        const [countryRes, branchRes, designationRes, rolesRes, techRes] =
+          await Promise.all([
+            dispatch(getCountry()).unwrap(),
+            dispatch(getBranch()).unwrap(),
+            dispatch(getDesignation()).unwrap(),
+            dispatch(getRoles()).unwrap(),
+            dispatch(fetchEmployees()).unwrap(),
+            dispatch(getData()).unwrap(),
+          ]);
 
         setTechnologies(
-          data.map((t) => ({
+          techRes?.data.map((t) => ({
             value: String(t.id),
             label: t.technologyName,
           }))
         );
 
-        const uniqueCategories = Array.from(
-          new Map(
-            data
-              .filter((t) => t.category?.id && t.category?.categoryName) 
-              .map((t) => [t.category.id, t.category.categoryName])
-          ).entries()
-        ).map(([id, name]) => ({
-          value: String(id),
-          label: name,
-        }));
-
-        setRoles(uniqueCategories);
-
+        setCountries(
+          countryRes?.data?.map((item) => ({
+            value: String(item.id),
+            label: item.countryName,
+          }))
+        );
+        setBranches(
+          branchRes?.data?.map((item) => ({
+            value: String(item.id),
+            label: item.location,
+          }))
+        );
+        setDesignations(
+          designationRes?.data?.map((item) => ({
+            value: String(item.id),
+            label: item.designation,
+          }))
+        );
+        setRoles(
+          rolesRes?.data?.map((item) => ({
+            value: String(item.id),
+            label: item.roleName,
+          }))
+        );
       } catch (err) {
-        console.error("Error fetching dropdown data:", err.message);
+        console.log("Error fetching dropdowns", err.message);
       } finally {
         setLoading(false);
       }
@@ -75,28 +179,41 @@ function AddEmployeeModal({ isOpen, onClose }) {
     if (isOpen) {
       fetchDropdownData();
     }
-  }, [isOpen]);
+  }, [isOpen, dispatch]);
 
+  useEffect(() => {
+    if (form.countryId) {
+      dispatch(getStates(form.countryId));
+      setForm((prev) => ({ ...prev, stateId: null, cityId: null }));
+    }
+  }, [form.countryId, dispatch]);
+
+  useEffect(() => {
+    if (form.stateId) {
+      dispatch(getCities(form.stateId));
+      setForm((prev) => ({ ...prev, cityId: null }));
+    }
+  }, [form.stateId, dispatch]);
   const handleSubmit = async () => {
+    const error = validateForm(form);
+    if (error) {
+      return dispatch(showToast({ message: error, type: "error" }));
+    }
     try {
-      await dispatch(addEmployee(form));
-      await dispatch(fetchEmployees());
-      
+      const payload = buildPayload(form);
+      await dispatch(addEmployee(payload)).unwrap();
+      await dispatch(getData());
       dispatch(
         showToast({ message: "Employee added successfully!", type: "success" })
       );
-      if(fetchEmployees().rejected) {
-        dispatch(
-          showToast({ message: "Error adding employee", type: "error" })
-        );
-      }
       setForm(initialFormState);
       onClose();
     } catch (err) {
-      console.error(
-        "Employee add error:",
-        err.response?.data || err.message
-      );
+      dispatch(showToast({ message: "Error adding employee", type: "error" }));
+      console.log("Employee add error:", err.message);
+    } finally {
+      onClose();
+      setForm(initialFormState);
     }
   };
 
@@ -107,11 +224,17 @@ function AddEmployeeModal({ isOpen, onClose }) {
       title="Add Employee"
       size="80%"
       centered
+      style={{
+        content: {
+          heigth: "90vh",
+          overflowY: "auto",
+        },
+      }}
     >
       {loading ? (
         <Loader />
       ) : (
-        <Grid gutter="md">
+        <Grid gutter="md" mt={30}>
           <Grid.Col span={4}>
             <TextInput
               required
@@ -130,6 +253,41 @@ function AddEmployeeModal({ isOpen, onClose }) {
               data={technologies}
               value={form.technologyId}
               onChange={(val) => setForm({ ...form, technologyId: val })}
+              searchable
+            />
+          </Grid.Col>
+
+          <Grid.Col span={4}>
+            <DateInput
+              required
+              label="Date of Joining"
+              placeholder="Select Date of Joining"
+              value={form.dateOfJoining}
+              onChange={(val) => setForm({ ...form, dateOfJoining: val })}
+            />
+          </Grid.Col>
+
+          <Grid.Col span={4}>
+            <TextInput
+              required
+              label="Phone"
+              placeholder="Enter Phone Number"
+              value={form.phoneNumber}
+              onChange={(e) =>
+                setForm({ ...form, phoneNumber: e.target.value })
+              }
+            />
+          </Grid.Col>
+
+          <Grid.Col span={4}>
+            <TextInput
+              required
+              label="Address"
+              placeholder="Enter Address"
+              value={form.addressLine1}
+              onChange={(e) =>
+                setForm({ ...form, addressLine1: e.target.value })
+              }
             />
           </Grid.Col>
 
@@ -141,6 +299,7 @@ function AddEmployeeModal({ isOpen, onClose }) {
               data={roles}
               value={form.roleId}
               onChange={(val) => setForm({ ...form, roleId: val })}
+              searchable
             />
           </Grid.Col>
 
@@ -149,13 +308,19 @@ function AddEmployeeModal({ isOpen, onClose }) {
               required
               label="Gender"
               placeholder="Select Gender"
-              data={[
-                { value: "Male", label: "Male" },
-                { value: "Female", label: "Female" },
-                { value: "Other", label: "Other" },
-              ]}
+              data={genderData}
               value={form.gender}
               onChange={(val) => setForm({ ...form, gender: val })}
+            />
+          </Grid.Col>
+
+          <Grid.Col span={4}>
+            <DateInput
+              required
+              label="Bench Date"
+              placeholder="Select Bench Date"
+              value={form.benchDate}
+              onChange={(val) => setForm({ ...form, benchDate: val })}
             />
           </Grid.Col>
 
@@ -186,17 +351,10 @@ function AddEmployeeModal({ isOpen, onClose }) {
               required
               label="Country"
               placeholder="Select Country"
-              data={[
-                { value: "IN", label: "India" },
-                { value: "US", label: "United States" },
-                { value: "CA", label: "Canada" },
-                { value: "AU", label: "Australia" },
-                { value: "UK", label: "United Kingdom" },
-                { value: "FR", label: "France" },
-                { value: "DE", label: "Germany" },
-              ]}
+              data={countries}
               value={form.countryId}
               onChange={(val) => setForm({ ...form, countryId: val })}
+              searchable
             />
           </Grid.Col>
 
@@ -205,17 +363,11 @@ function AddEmployeeModal({ isOpen, onClose }) {
               required
               label="State"
               placeholder="Select State"
-              data={[
-                { value: "MH", label: "Maharashtra" },
-                { value: "UP", label: "Uttar Pradesh" },
-                { value: "MP", label: "Madhya Pradesh" },
-                { value: "GJ", label: "Gujarat" },
-                { value: "RJ", label: "Rajasthan" },
-                { value: "DL", label: "Delhi" },
-                { value: "TN", label: "Tamil Nadu" },
-              ]}
-              value={form.stateId}
+              data={states}
+              value={form.stateId ? String(form.stateId) : null}
               onChange={(val) => setForm({ ...form, stateId: val })}
+              disabled={!form.countryId}
+              searchable
             />
           </Grid.Col>
 
@@ -224,18 +376,11 @@ function AddEmployeeModal({ isOpen, onClose }) {
               required
               label="City"
               placeholder="Select City"
-              data={[
-                { value: "Mumbai", label: "Mumbai" },
-                { value: "Pune", label: "Pune" },
-                { value: "Nagpur", label: "Nagpur" },
-                { value: "Ahmedabad", label: "Ahmedabad" },
-                { value: "Surat", label: "Surat" },
-                { value: "Jaipur", label: "Jaipur" },
-                { value: "Delhi", label: "Delhi" },
-                { value: "Chennai", label: "Chennai" },
-              ]}
-              value={form.cityId}
+              data={cities}
+              value={form.cityId ? String(form.cityId) : null}
               onChange={(val) => setForm({ ...form, cityId: val })}
+              disabled={!form.stateId}
+              searchable
             />
           </Grid.Col>
 
@@ -244,17 +389,10 @@ function AddEmployeeModal({ isOpen, onClose }) {
               required
               label="Branch"
               placeholder="Select Branch"
-              data={[
-                { value: "Pune", label: "Pune" },
-                { value: "Nagpur", label: "Nagpur" },
-                { value: "Ahmedabad", label: "Ahmedabad" },
-                { value: "Surat", label: "Surat" },
-                { value: "Jaipur", label: "Jaipur" },
-                { value: "Delhi", label: "Delhi" },
-                { value: "Chennai", label: "Chennai" },
-              ]}
+              data={branches}
               value={form.branch}
               onChange={(val) => setForm({ ...form, branch: val })}
+              searchable
             />
           </Grid.Col>
 
@@ -263,27 +401,69 @@ function AddEmployeeModal({ isOpen, onClose }) {
               required
               label="Designation"
               placeholder="Select Designation"
-              data={[
-                { value: "Manager", label: "Manager"},
-                { value: "Developer", label: "Developer"},
-                { value: "Tester", label: "Tester"},
-                { value: "HR", label: "HR"},
-                { value: "Sales", label: "Sales"},
-                { value: "Marketing", label: "Marketing"},
-                { value: "Finance", label: "Finance"},
-              ]}
+              data={designations}
               value={form.designationId}
-              onChange={(val) => setForm({ ...form, designationId: val.id })}
+              onChange={(val) => setForm({ ...form, designationId: val })}
+              searchable
+            />
+          </Grid.Col>
+
+          <Grid.Col span={4}>
+            <Select
+              required
+              label="Year of Passing"
+              placeholder="Select Year of Passing"
+              data={years}
+              value={form.yearOfPassing ?? undefined}
+              onChange={(val) =>
+                setForm((prev) => ({
+                  ...prev,
+                  yearOfPassing: val ?? undefined,
+                }))
+              }
+              searchable
+            />
+          </Grid.Col>
+
+          <Grid.Col span={4}>
+            <DateInput
+              required
+              label="Payroll Date"
+              placeholder="Select Payroll Date"
+              value={form.payrollDate}
+              onChange={(val) => setForm({ ...form, payrollDate: val })}
+            />
+          </Grid.Col>
+
+          <Grid.Col span={2}>
+            <TextInput
+              required
+              label="Years"
+              placeholder="Enter Years"
+              value={form.years}
+              onChange={(e) => setForm({ ...form, years: e.target.value })}
+            />
+          </Grid.Col>
+
+          <Grid.Col span={2}>
+            <TextInput
+              required
+              label="Months"
+              placeholder="Enter Months"
+              value={form.months}
+              onChange={(e) => setForm({ ...form, months: e.target.value })}
             />
           </Grid.Col>
         </Grid>
       )}
 
-      <Group position="right" mt="lg">
+      <Group justify="flex-end" mt={50}>
         <Button variant="default" onClick={onClose}>
           Cancel
         </Button>
-        <Button onClick={handleSubmit} type="submit">Add</Button>
+        <Button onClick={handleSubmit} type="submit loading={loading}">
+          Add
+        </Button>
       </Group>
     </Modal>
   );

@@ -1,153 +1,229 @@
 "use client";
+
+import { useState, useEffect } from "react";
+import { useDispatch } from "react-redux";
 import {
   Modal,
   Button,
   Group,
   Select,
+  Grid,
+  Loader,
   MultiSelect,
 } from "@mantine/core";
-import { DateInput } from "@mantine/dates";
-import { useState, useEffect } from "react";
-import api from "@/app/services/api";
-import {
-  GET_TECHNOLOGIES,
-  GET_COUNTRIES,
-} from "@/app/utility/apiEndPoint";
+
+import { genderData, statusData, employeeStatus, joiningDate } from "@/app/utility";
+import { fetchEmployees } from "@/app/redux/slices/employeeSlice";
+
+const initialFilterState = {
+  gender: [],
+  status: [],
+  technologyId: [],
+  dateOfJoining: [],
+  employeeStatus: [], 
+};
 
 function FilterModal({ opened, onClose, onApply }) {
-  const [filters, setFilters] = useState({
-    technology: [],
-    gender: "",
-    dojStartDate: null,
-    countryId: "",
-  });
+  const dispatch = useDispatch();
 
+  const [form, setForm] = useState(initialFilterState);
   const [technologies, setTechnologies] = useState([]);
-  const [countries, setCountries] = useState([]);
+  const [loading, setLoading] = useState(false);
 
+  // Fetch dropdowns
   useEffect(() => {
-    if (!opened) return; 
-
-    const fetchData = async () => {
+    const fetchDropdownData = async () => {
+      setLoading(true);
       try {
-        const techRes = await api.post(GET_TECHNOLOGIES, {});
+        const [techRes] = await Promise.all([
+          dispatch(fetchEmployees()).unwrap(),
+        ])
+
         setTechnologies(
-          (techRes.data?.data || []).map((t) => ({
+          techRes?.data?.map((t) => ({
             value: String(t.id),
             label: t.technologyName,
           }))
         );
-
-        
-        const countryRes = await api.post(GET_COUNTRIES, {});
-        setCountries(
-          (countryRes.data?.data || []).map((c) => ({
-            value: String(c.id),
-            label: c.name,
-          }))
-        );
       } catch (err) {
-        console.log("Error filter data:", err);
+        console.log("Error fetching dropdowns", err.message);
+      } finally {
+        setLoading(false);
       }
     };
 
-    fetchData();
+    if (opened) {
+      fetchDropdownData();
+    }
   }, [opened]);
+const buildFilterPayload = (form) => {
+  const payload = {};
 
-  useEffect(() => {
-    if (!filters.countryId) return;
-    const fetchStates = async () => {
-      try {
-        const stateRes = await api.post(GET_STATES, {
-          countryId: filters.countryId,
-        });
-        setStates(
-          (stateRes.data?.data || []).map((s) => ({
-            value: String(s.id),
-            label: s.name,
-          }))
-        );
-      } catch (err) {
-        console.log("Error fetching states:", err);
-      }
-    };
-    fetchStates();
-  }, [filters.countryId]);
+  if(form.gender.length > 0){
+    payload.gender = form.gender.toUpperCase();
+  }
 
-  useEffect(() => {
-    if (!filters.stateId) return;
-    const fetchCities = async () => {
-      try {
-        const cityRes = await api.post(GET_CITIES, {
-          stateId: filters.stateId,
-        });
-        setCities(
-          (cityRes.data?.data || []).map((c) => ({
-            value: String(c.id),
-            label: c.name,
-          }))
-        );
-      } catch (err) {
-        console.log("Error fetching cities:", err);
-      }
-    };
-    fetchCities();
-  }, [filters.stateId]);
-
-  const handleChange = (field, value) => {
-    setFilters((prev) => ({ ...prev, [field]: value }));
+  const statusMap = {
+    "Training Completed": 0,
+    "Ready to Deploy": 1,
+    "Deployed": 2,
+    "Under Training": 3,
+    "Freeze": 5,
   };
+  if (form.status.length > 0) {
+  payload.status = form.status
+    .map((s) => statusMap[s]) 
+    .join(","); 
+}
 
-  const handleSubmit = () => {
-    onApply(filters);
+  if (form.technologyId.length > 0) {
+    payload.technologyId = form.technologyId.map((t) => Number(t)).join(",");
+  }
+
+  if (form.employeeStatus.length > 0) {
+    if (form.employeeStatus.includes("Active")) {
+      payload.active = true;
+    } else if (form.employeeStatus.includes("Deleted")) {
+      payload.active = false;
+    }
+  }
+
+  if (form.dateOfJoining.length > 0) {
+    const today = new Date();
+    let startDate, endDate;
+
+    switch (form.dateOfJoining[0]) {
+      case "1 Week":
+        endDate = today.toISOString().split("T")[0];
+        startDate = new Date(today.setDate(today.getDate() - 7))
+          .toISOString()
+          .split("T")[0];
+        break;
+      case "1 Month":
+        endDate = new Date().toISOString().split("T")[0];
+        startDate = new Date(today.setMonth(today.getMonth() - 1))
+          .toISOString()
+          .split("T")[0];
+        break;
+      case "1 Quarter":
+        endDate = new Date().toISOString().split("T")[0];
+        startDate = new Date(today.setMonth(today.getMonth() - 3))
+          .toISOString()
+          .split("T")[0];
+        break;
+      case "1 Year":
+        endDate = new Date().toISOString().split("T")[0];
+        startDate = new Date(today.setFullYear(today.getFullYear() - 1))
+          .toISOString()
+          .split("T")[0];
+        break;
+      default:
+        break;
+    }
+
+    if (startDate && endDate) {
+      payload.dojStartDate = startDate;
+      payload.dojEndDate = endDate;
+    }
+  }
+
+  return payload;
+};
+
+
+const handleApply = () => {
+  const payload = buildFilterPayload(form);
+  onApply(payload);   
+  onClose();
+  setForm(initialFilterState);
+};
+
+
+  const handleClear = () => {
+    setForm(initialFilterState);
+    onApply(initialFilterState); 
     onClose();
   };
 
   return (
-    <Modal opened={opened} onClose={onClose} title="Filter Employees" centered>
-      <div className="space-y-4">
-        <MultiSelect
-          label="Technology"
-          placeholder="Select technologies"
-          data={technologies}
-          value={filters.technology}
-          onChange={(val) => handleChange("technology", val)}
-        />
+    <Modal
+      opened={opened}
+      onClose={onClose}
+      title="Filter Employees"
+      size="50%"
+      centered
+    >
+      {loading ? (
+        <Loader />
+      ) : (
+        <Grid gutter="md" mt={30}>
+          <Grid.Col span={6}>
+            <Select
+              label="Gender"
+              placeholder="Select Gender"
+              data={genderData}
+              value={form.gender}
+              onChange={(val) => setForm({ ...form, gender: val })}
+              searchable
+              clearable
+            />
+          </Grid.Col>
 
-        <Select
-          label="Gender"
-          placeholder="Select gender"
-          data={[
-            { value: "MALE", label: "Male" },
-            { value: "FEMALE", label: "Female" },
-            { value: "OTHER", label: "Other" },
-          ]}
-          value={filters.gender}
-          onChange={(val) => handleChange("gender", val)}
-        />
+          <Grid.Col span={6}>
+            <MultiSelect
+              label="Status"
+              placeholder="Select Status"
+              data={statusData}
+              value={form.status}
+              onChange={(val) => setForm({ ...form, status: val })}
+              searchable
+              clearable
+            />
+          </Grid.Col>
 
-        <DateInput
-          label="Joining Date"
-          placeholder="Pick date of joining"
-          value={filters.dojStartDate}
-          onChange={(val) => handleChange("dojStartDate", val)}
-        />
+          <Grid.Col span={6}>
+            <MultiSelect
+              label="Technology"
+              placeholder="Select Technology"
+              data={technologies}
+              value={form.technologyId}
+              onChange={(val) => setForm({ ...form, technologyId: val })}
+              searchable
+              clearable
+            />
+          </Grid.Col>
 
-        <Select
-          label="Country"
-          placeholder="Select country"
-          data={countries}
-          value={filters.countryId}
-          onChange={(val) => handleChange("countryId", val)}
-        />
+          <Grid.Col span={6}>
+            <MultiSelect
+              label="Date of Joining"
+              placeholder="Select Date"
+              value={form.dateOfJoining}
+              data={joiningDate}
+              onChange={(val) => setForm({ ...form, dateOfJoining: val })}
+              clearable
+            />
+          </Grid.Col>
 
-        <Group justify="flex-end" mt="md">
-          <Button variant="outline" onClick={onClose}>
-            Cancel
-          </Button>
-          <Button onClick={handleSubmit}>Apply</Button>
-        </Group>
-      </div>
+          <Grid.Col span={6}>
+            <MultiSelect
+              label="Payroll Status"
+              placeholder="Select Payroll Status"
+              data={employeeStatus}
+              value={form.employeeStatus}
+              onChange={(val) => setForm({ ...form, employeeStatus: val })}
+              searchable
+              clearable
+            />
+          </Grid.Col>
+        </Grid>
+      )}
+
+      <Group justify="flex-end" mt={50}>
+        <Button variant="default" onClick={handleClear}>
+          Clear
+        </Button>
+        <Button onClick={handleApply}>Apply</Button>
+      </Group>
     </Modal>
   );
 }
